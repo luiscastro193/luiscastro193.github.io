@@ -1,2 +1,2 @@
 "use strict";
-navigator.serviceWorker.register("cache-sw.js");
+navigator.serviceWorker.register(new URL('cache-sw.js', import.meta.url));
