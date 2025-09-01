@@ -26,5 +26,7 @@ registerRoute(
 	}]})
 );
 
+registerRoute(({request}) => request.destination == 'style', new StaleWhileRevalidate());
+
 clientsClaim();
 skipWaiting();
