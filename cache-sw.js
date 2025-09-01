@@ -20,7 +20,7 @@ registerRoute(
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
 			if (oldResponse && !responsesAreSame(oldResponse, newResponse, headers)) {
 				clearTimeout(timeout);
-				timeout = setTimeout(reload, 1000);
+				timeout = setTimeout(reload, 500);
 			}
 		}
 	}]})
