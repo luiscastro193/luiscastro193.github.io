@@ -15,7 +15,7 @@ async function reload() {
 let timeout;
 
 registerRoute(
-	({url}) => url.origin === location.origin,
+	({url}) => url.origin == location.origin,
 	new StaleWhileRevalidate({plugins: [{
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
 			if (oldResponse && !responsesAreSame(oldResponse, newResponse, headers)) {
