@@ -5,25 +5,35 @@ const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 
-function hasUpdated(oldResponse, newResponse) {
-	const timestamps = [...arguments].map(response => Date.parse(response.headers.get('last-modified')));
-	return timestamps[1] - timestamps[0] > 10000;
+async function toHash(blob) {
+	return blob.arrayBuffer().then(array => crypto.subtle.digest('SHA-256', array)).then(hash => new Uint32Array(hash));
 }
 
-async function reload() {
-	for (const client of await clients.matchAll())
-		client.navigate(client.url);
+async function hasUpdated(oldResponse, newResponse) {
+	const etags = [...arguments].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
+	if (etags[0] && etags[0] == etags[1]) return false;
+	let bodies = await Promise.all([...arguments].map(response => response.blob()));
+	if (bodies[0].size != bodies[1].size) return true;
+	bodies = await Promise.all(bodies.map(toHash));
+	return bodies[0].some((value, index) => value != bodies[1][index]);
 }
 
-let timeout;
+const timeouts = new Map();
+
+async function reload(clientId) {
+	timeouts.delete(clientId);
+	const client = await clients.get(clientId);
+	client.navigate(client.url);
+}
 
 registerRoute(
 	({url}) => url.origin == location.origin,
 	new StaleWhileRevalidate({plugins: [{
-		cacheDidUpdate: ({oldResponse, newResponse}) => {
-			if (oldResponse && hasUpdated(oldResponse, newResponse)) {
-				clearTimeout(timeout);
-				timeout = setTimeout(reload, 500);
+		cacheDidUpdate: async ({oldResponse, newResponse, event}) => {
+			if (oldResponse && await hasUpdated(oldResponse, newResponse)) {
+				const clientId = event.resultingClientId || event.clientId;
+				clearTimeout(timeouts.get(clientId));
+				timeouts.set(clientId, setTimeout(reload, 500, clientId));
 			}
 		}
 	}]})
