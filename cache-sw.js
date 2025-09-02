@@ -23,7 +23,7 @@ const timeouts = new Map();
 async function reload(clientId) {
 	timeouts.delete(clientId);
 	const client = await clients.get(clientId);
-	client.navigate(client.url);
+	if (client) client.navigate(client.url);
 }
 
 registerRoute(
