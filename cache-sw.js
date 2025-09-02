@@ -22,6 +22,10 @@ registerRoute(
 	new StaleWhileRevalidate({plugins: [{
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
 			if (oldResponse && hasUpdated(oldResponse, newResponse)) {
+				const etags = [oldResponse, newResponse].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
+				console.log(oldResponse);
+				console.log(newResponse);
+				console.log(etags);
 				clearTimeout(timeout);
 				timeout = setTimeout(reload, 500);
 			}
