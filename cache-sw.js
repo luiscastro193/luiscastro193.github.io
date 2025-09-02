@@ -19,8 +19,8 @@ registerRoute(
 	new StaleWhileRevalidate({plugins: [{
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
 			if (oldResponse && !responsesAreSame(oldResponse, newResponse, headers)) {
-				console.log(oldResponse.headers);
-				console.log(newResponse.headers);
+				console.log([...oldResponse.headers.entries()]);
+				console.log([...newResponse.headers.entries()]);
 				clearTimeout(timeout);
 				timeout = setTimeout(reload, 500);
 			}
