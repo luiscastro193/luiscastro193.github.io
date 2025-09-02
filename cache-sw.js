@@ -4,11 +4,14 @@ importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox
 const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
-const {responsesAreSame} = workbox.broadcastUpdate;
-const headers = ['last-modified'];
+
+function hasUpdated(oldResponse, newResponse) {
+	const timestamps = [...arguments].map(response => Date.parse(response.headers.get('last-modified')));
+	return Math.abs(timestamps[0] - timestamps[1]) > 10000;
+}
 
 async function reload() {
-	for (let client of await clients.matchAll())
+	for (const client of await clients.matchAll())
 		client.navigate(client.url);
 }
 
@@ -18,9 +21,7 @@ registerRoute(
 	({url}) => url.origin == location.origin,
 	new StaleWhileRevalidate({plugins: [{
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
-			if (oldResponse && !responsesAreSame(oldResponse, newResponse, headers)) {
-				console.log([...oldResponse.headers.entries()]);
-				console.log([...newResponse.headers.entries()]);
+			if (oldResponse && hasUpdated(oldResponse, newResponse)) {
 				clearTimeout(timeout);
 				timeout = setTimeout(reload, 500);
 			}
