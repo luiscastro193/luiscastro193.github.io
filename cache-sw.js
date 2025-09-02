@@ -5,7 +5,7 @@ const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 const {responsesAreSame} = workbox.broadcastUpdate;
-const headers = ['content-length', 'etag', 'last-modified'];
+const headers = ['last-modified'];
 
 async function reload() {
 	for (let client of await clients.matchAll())
