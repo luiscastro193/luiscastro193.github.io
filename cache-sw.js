@@ -6,8 +6,8 @@ const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 
 function hasUpdated(oldResponse, newResponse) {
-	const etags = [...arguments].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
-	return etags[0] && etags[1] && etags[0] != etags[1];
+	const timestamps = [...arguments].map(response => Date.parse(response.headers.get('last-modified')));
+	return timestamps[1] - timestamps[0] > 10000;
 }
 
 async function reload() {
@@ -22,10 +22,6 @@ registerRoute(
 	new StaleWhileRevalidate({plugins: [{
 		cacheDidUpdate: ({oldResponse, newResponse}) => {
 			if (oldResponse && hasUpdated(oldResponse, newResponse)) {
-				const etags = [oldResponse, newResponse].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
-				console.log(oldResponse);
-				console.log(newResponse);
-				console.log(etags);
 				clearTimeout(timeout);
 				timeout = setTimeout(reload, 500);
 			}
