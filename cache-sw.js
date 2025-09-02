@@ -6,8 +6,8 @@ const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 
 function hasUpdated(oldResponse, newResponse) {
-	const timestamps = [...arguments].map(response => Date.parse(response.headers.get('last-modified')));
-	return Math.abs(timestamps[0] - timestamps[1]) > 10000;
+	const etags = [...arguments].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
+	return etags[0] && etags[1] && etags[0] != etags[1];
 }
 
 async function reload() {
