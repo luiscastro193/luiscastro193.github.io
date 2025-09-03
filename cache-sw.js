@@ -6,11 +6,11 @@ const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 
 async function toHash(blob) {
-	return blob.arrayBuffer().then(array => crypto.subtle.digest('SHA-256', array)).then(hash => new Uint32Array(hash));
+	return new Uint32Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
 }
 
 async function hasUpdated(oldResponse, newResponse) {
-	const etags = [...arguments].map(response => (response.headers.get('etag') || '').trim().replace(/^W\//, ''));
+	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
 	let bodies = await Promise.all([...arguments].map(response => response.blob()));
 	if (bodies[0].size != bodies[1].size) return true;
