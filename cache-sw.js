@@ -2,7 +2,6 @@
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox-sw.js');
 importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
 
-const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
 hashwasm.createXXHash128();
@@ -43,5 +42,5 @@ registerRoute(
 
 registerRoute(({request}) => request.destination == 'style', new StaleWhileRevalidate());
 
-clientsClaim();
+addEventListener('activate', () => clients.claim());
 skipWaiting();
