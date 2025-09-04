@@ -1,21 +1,23 @@
 "use strict";
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox-sw.js');
+importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash3.umd.min.js');
 
 const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
+hashwasm.createXXHash3();
 
-async function toHash(blob) {
-	return new Uint32Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
+async function hash(stream) {
+	const hasher = await hashwasm.createXXHash3();
+	await stream.pipeTo(new WritableStream({write: chunk => hasher.update(chunk)}));
+	return hasher.digest('binary');
 }
 
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
-	let bodies = await Promise.all([...arguments].map(response => response.blob()));
-	if (bodies[0].size != bodies[1].size) return true;
-	bodies = await Promise.all(bodies.map(toHash));
-	return bodies[0].some((value, index) => value != bodies[1][index]);
+	const hashes = await Promise.all([...arguments].map(response => hash(response.body)));
+	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
 
 const timeouts = new Map();
