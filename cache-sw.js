@@ -1,14 +1,14 @@
 "use strict";
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox-sw.js');
-importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash3.umd.min.js');
+importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
 
 const {clientsClaim} = workbox.core;
 const {registerRoute} = workbox.routing;
 const {StaleWhileRevalidate} = workbox.strategies;
-hashwasm.createXXHash3();
+hashwasm.createXXHash128();
 
 async function hash(stream) {
-	const hasher = await hashwasm.createXXHash3();
+	const hasher = await hashwasm.createXXHash128();
 	await stream.pipeTo(new WritableStream({write: chunk => hasher.update(chunk)}));
 	return hasher.digest('binary');
 }
