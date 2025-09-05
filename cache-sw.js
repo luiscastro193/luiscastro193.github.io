@@ -58,23 +58,20 @@ addEventListener('fetch', event => {
 	const cache = caches.open('runtime');
 	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
 	const raced = race(cached, response);
+	event.respondWith(raced.then(myRaced => myRaced.clone()));
 	
-	event.respondWith((async () => {
-		event.waitUntil(response.then(async myResponse => {
-			if (myResponse.status == 200) {
-				const myCache = await cache;
-				await myCache.put(request, myResponse.clone());
-				if (mayReload) cleanRepeated(request, myCache);
-				
-				if (mayReload && await cached)
-					await reloadIfNeeded((await raced).clone(), myResponse.clone(), event);
-			}
-			else if (myResponse.type == 'opaque' && !await cached)
-				console.error(`${request.url} request is not crossorigin`);
-		}));
-		
-		return (await raced).clone();
-	})());
+	event.waitUntil(response.then(async myResponse => {
+		if (myResponse.status == 200) {
+			const myCache = await cache;
+			await myCache.put(request, myResponse.clone());
+			if (mayReload) cleanRepeated(request, myCache);
+			
+			if (mayReload && await cached)
+				await reloadIfNeeded((await raced).clone(), myResponse.clone(), event);
+		}
+		else if (myResponse.type == 'opaque' && !await cached)
+			console.error(`${request.url} request is not crossorigin`);
+	}));
 });
 
 addEventListener('activate', () => clients.claim());
