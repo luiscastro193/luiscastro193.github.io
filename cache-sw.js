@@ -46,8 +46,8 @@ async function race(cached, response) {
 }
 
 async function cleanRepeated(request, cache) {
-	for (const key of await cache.keys(request, {ignoreSearch: true}))
-		if (key.url != request.url) cache.delete(key);
+	const matches = await cache.keys(request, {ignoreSearch: true});
+	await Promise.all(matches.filter(key => key.url != request.url).map(key => cache.delete(key)));
 }
 
 addEventListener('fetch', event => {
@@ -64,10 +64,11 @@ addEventListener('fetch', event => {
 		if (myResponse.status == 200) {
 			const myCache = await cache;
 			await myCache.put(request, myResponse.clone());
-			if (mayReload) cleanRepeated(request, myCache);
 			
-			if (mayReload && await cached)
+			if (mayReload && await cached) {
+				await cleanRepeated(request, myCache);
 				await reloadIfNeeded((await raced).clone(), myResponse.clone(), event);
+			}
 		}
 		else if (myResponse.type == 'opaque' && !await cached)
 			console.error(`${request.url} request is not crossorigin`);
