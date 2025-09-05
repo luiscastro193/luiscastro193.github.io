@@ -54,7 +54,7 @@ addEventListener('fetch', event => {
 	const request = event.request;
 	if (!isValid(request)) return;
 	const mayReload = forcesReload(request);
-	const response = fetch(request);
+	const response = event.preloadResponse.then(myResponse => myResponse || fetch(request));
 	const cache = caches.open('runtime');
 	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
 	const raced = race(cached, response);
@@ -74,5 +74,11 @@ addEventListener('fetch', event => {
 	}));
 });
 
-addEventListener('activate', () => clients.claim());
+addEventListener('activate', event => {
+	event.waitUntil((async () => {
+		await registration.navigationPreload.enable();
+		await clients.claim();
+	})());
+});
+
 skipWaiting();
