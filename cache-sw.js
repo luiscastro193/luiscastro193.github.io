@@ -32,7 +32,7 @@ async function reload(clientId) {
 	if (client) client.navigate(client.url);
 }
 
-async function cacheDidUpdate(oldResponse, newResponse, event) {
+async function reloadIfNeeded(oldResponse, newResponse, event) {
 	if (await hasUpdated(oldResponse, newResponse)) {
 		const clientId = event.resultingClientId || event.clientId;
 		clearTimeout(timeouts.get(clientId));
@@ -40,28 +40,40 @@ async function cacheDidUpdate(oldResponse, newResponse, event) {
 	}
 }
 
+async function race(cached, response) {
+	const raced = await Promise.any([cached, response]);
+	return raced?.status == 200 && raced || await cached || response;
+}
+
+async function cleanRepeated(request, cache) {
+	for (const key of await cache.keys(request, {ignoreSearch: true}))
+		if (key.url != request.url) cache.delete(key);
+}
+
 addEventListener('fetch', event => {
 	const request = event.request;
 	if (!isValid(request)) return;
 	const mayReload = forcesReload(request);
+	const response = fetch(request);
+	const cache = caches.open('runtime');
+	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
+	const raced = race(cached, response);
 	
 	event.respondWith((async () => {
-		const cache = caches.open('runtime');
-		const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
-		const response = fetch(request);
-		
 		event.waitUntil(response.then(async myResponse => {
 			if (myResponse.status == 200) {
-				await (await cache).put(request, myResponse.clone());
+				const myCache = await cache;
+				await myCache.put(request, myResponse.clone());
+				if (mayReload) cleanRepeated(request, myCache);
 				
 				if (mayReload && await cached)
-					await cacheDidUpdate((await cached).clone(), myResponse, event);
+					await reloadIfNeeded((await raced).clone(), myResponse.clone(), event);
 			}
-			else if (myResponse.type == 'opaque')
+			else if (myResponse.type == 'opaque' && !await cached)
 				console.error(`${request.url} request is not crossorigin`);
 		}));
 		
-		return (await cached || await response).clone();
+		return (await raced).clone();
 	})());
 });
 
