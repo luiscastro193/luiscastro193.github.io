@@ -1,9 +1,5 @@
 "use strict";
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox-sw.js');
 importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
-
-const {registerRoute} = workbox.routing;
-const {StaleWhileRevalidate} = workbox.strategies;
 hashwasm.createXXHash128();
 
 async function hash(stream) {
@@ -19,6 +15,15 @@ async function hasUpdated(oldResponse, newResponse) {
 	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
 
+function forcesReload(request) {
+	const url = new URL(request.url);
+	return url.origin == location.origin;
+}
+
+function isValid(request) {
+	return forcesReload(request) || request.destination == 'style';
+}
+
 const timeouts = new Map();
 
 async function reload(clientId) {
@@ -27,20 +32,36 @@ async function reload(clientId) {
 	if (client) client.navigate(client.url);
 }
 
-registerRoute(
-	({url}) => url.origin == location.origin,
-	new StaleWhileRevalidate({plugins: [{
-		cacheDidUpdate: async ({oldResponse, newResponse, event}) => {
-			if (oldResponse && await hasUpdated(oldResponse, newResponse)) {
-				const clientId = event.resultingClientId || event.clientId;
-				clearTimeout(timeouts.get(clientId));
-				timeouts.set(clientId, setTimeout(reload, 500, clientId));
-			}
-		}
-	}]})
-);
+async function cacheDidUpdate(oldResponse, newResponse, event) {
+	if (await hasUpdated(oldResponse, newResponse)) {
+		const clientId = event.resultingClientId || event.clientId;
+		clearTimeout(timeouts.get(clientId));
+		timeouts.set(clientId, setTimeout(reload, 500, clientId));
+	}
+}
 
-registerRoute(({request}) => request.destination == 'style', new StaleWhileRevalidate());
+addEventListener('fetch', event => {
+	const request = event.request;
+	if (!isValid(request)) return;
+	const mayReload = forcesReload(request);
+	
+	event.respondWith((async () => {
+		const cache = caches.open('runtime');
+		const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
+		const response = fetch(request);
+		
+		event.waitUntil(response.then(async myResponse => {
+			if ([200, 203].includes(myResponse.status)) {
+				await (await cache).put(request, myResponse.clone());
+				
+				if (mayReload && await cached)
+					await cacheDidUpdate((await cached).clone(), myResponse, event);
+			}
+		}));
+		
+		return (await cached || await response).clone();
+	})());
+});
 
 addEventListener('activate', () => clients.claim());
 skipWaiting();
