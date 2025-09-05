@@ -47,7 +47,7 @@ async function race(cached, response) {
 
 async function cleanRepeated(request, cache) {
 	const matches = await cache.keys(request, {ignoreSearch: true});
-	await Promise.all(matches.filter(key => key.url != request.url).map(key => cache.delete(key)));
+	await Promise.all(matches.slice(0, -1).map(key => cache.delete(key)));
 }
 
 addEventListener('fetch', event => {
