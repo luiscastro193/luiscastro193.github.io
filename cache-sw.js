@@ -51,12 +51,14 @@ addEventListener('fetch', event => {
 		const response = fetch(request);
 		
 		event.waitUntil(response.then(async myResponse => {
-			if ([200, 203].includes(myResponse.status)) {
+			if (myResponse.status == 200) {
 				await (await cache).put(request, myResponse.clone());
 				
 				if (mayReload && await cached)
 					await cacheDidUpdate((await cached).clone(), myResponse, event);
 			}
+			else if (myResponse.type == 'opaque')
+				console.error(`${request.url} request is not crossorigin`);
 		}));
 		
 		return (await cached || await response).clone();
