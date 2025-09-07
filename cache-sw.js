@@ -24,20 +24,39 @@ function isValid(request) {
 	return forcesReload(request) || request.destination == 'style';
 }
 
-const timeouts = new Map();
+const myClients = new Map();
 
-async function reload(clientId) {
-	timeouts.delete(clientId);
-	const client = await clients.get(clientId);
-	if (client) client.navigate(client.url);
+function getClient(clientId) {
+	let client = myClients.get(clientId);
+	
+	if (!client) {
+		client = {petitions: 0};
+		myClients.set(clientId, client);
+	}
+	
+	return client;
 }
 
-async function reloadIfNeeded(oldResponse, newResponse, event) {
-	if (await hasUpdated(oldResponse, newResponse)) {
-		const clientId = event.resultingClientId || event.clientId;
-		clearTimeout(timeouts.get(clientId));
-		timeouts.set(clientId, setTimeout(reload, 500, clientId));
-	}
+async function markReload(oldResponse, newResponse, client) {
+	if (await hasUpdated(oldResponse, newResponse)) client.reload = true;
+}
+
+async function reload(clientId) {
+	const client = await clients.get(clientId);
+	if (client) await client.navigate(client.url);
+}
+
+async function reloadIfNeeded(client, clientId) {
+	return new Promise(resolve => {setTimeout(() => {
+		client.petitions--;
+		
+		if (client.petitions <= 0) {
+			myClients.delete(clientId);
+			if (client.reload) resolve(reload(clientId));
+		}
+		
+		resolve();
+	})});
 }
 
 async function race(cached, response) {
@@ -60,26 +79,30 @@ addEventListener('fetch', event => {
 	const raced = race(cached, response);
 	event.respondWith(raced.then(myRaced => myRaced.clone()));
 	
+	if (mayReload) {
+		var clientId = event.resultingClientId || event.clientId;
+		var client = getClient(clientId);
+		client.petitions++;
+	}
+	
 	event.waitUntil(response.then(async myResponse => {
 		if (myResponse.status == 200) {
 			const myCache = await cache;
 			await myCache.put(request, myResponse.clone());
 			
 			if (mayReload && await cached) {
-				await cleanRepeated(request, myCache);
-				await reloadIfNeeded((await raced).clone(), myResponse.clone(), event);
+				await Promise.all([
+					markReload((await raced).clone(), myResponse.clone(), client),
+					cleanRepeated(request, myCache)
+				]);
 			}
 		}
 		else if (myResponse.type == 'opaque' && !await cached)
 			console.error(`${request.url} request is not crossorigin`);
+		
+		if (mayReload) await reloadIfNeeded(client, clientId);
 	}));
 });
 
-addEventListener('activate', event => {
-	event.waitUntil((async () => {
-		await registration.navigationPreload.enable();
-		await clients.claim();
-	})());
-});
-
+addEventListener('activate', event => event.waitUntil(registration.navigationPreload.enable()));
 skipWaiting();
