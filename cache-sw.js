@@ -99,7 +99,7 @@ addEventListener('fetch', event => {
 		}
 		else if (myResponse.type == 'opaque' && !await cached)
 			console.error(`${request.url} request is not crossorigin`);
-		
+	}).finally(async () => {
 		if (mayReload) await reloadIfNeeded(client, clientId);
 	}));
 });
