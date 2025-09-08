@@ -60,14 +60,34 @@ async function reloadIfNeeded(client, clientId) {
 	})});
 }
 
-async function race(cached, response) {
-	const raced = await Promise.any([cached, response]);
-	return raced?.status == 200 && raced || await cached || response;
-}
-
 async function cleanRepeated(request, cache) {
 	const matches = await cache.keys(request, {ignoreSearch: true, ignoreVary: true});
 	await Promise.all(matches.slice(0, -1).map(key => cache.delete(key)));
+}
+
+async function fullClean(cache) {
+	const matches = await cache.keys();
+	const nCleaned = Math.max(Math.trunc(matches.length / 2), 1);
+	await Promise.all(matches.slice(0, nCleaned).map(key => cache.delete(key)));
+}
+
+let cleanPromise;
+
+function setCleanPromise(cache) {
+	cleanPromise = fullClean(cache);
+	cleanPromise.finally(() => setTimeout(() => {cleanPromise = null}));
+}
+
+async function cleanAndRetry(cache, request, response, error) {
+	if (error.name != 'QuotaExceededError') throw error;
+	if (!cleanPromise) setCleanPromise(cache);
+	await cleanPromise;
+	return cache.put(request, response.clone());
+}
+
+async function race(cached, response) {
+	const raced = await Promise.any([cached, response]);
+	return raced?.status == 200 && raced || await cached || response;
 }
 
 async function safeFetch(request, event) {
@@ -99,7 +119,8 @@ addEventListener('fetch', event => {
 	event.waitUntil(response.then(async myResponse => {
 		if (myResponse.status == 200) {
 			const myCache = await cache;
-			await myCache.put(request, myResponse.clone());
+			await myCache.put(request, myResponse.clone())
+				.catch(error => cleanAndRetry(myCache, request, myResponse, error));
 			
 			if (mayReload && await cached) {
 				await Promise.all([
