@@ -38,7 +38,8 @@ function getClient(clientId) {
 }
 
 async function markReload(oldResponse, newResponse, client) {
-	if (await hasUpdated(oldResponse, newResponse)) client.reload = true;
+	if (!client.reload && await hasUpdated(oldResponse, newResponse))
+		client.reload = true;
 }
 
 async function reload(clientId) {
