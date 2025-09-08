@@ -70,11 +70,21 @@ async function cleanRepeated(request, cache) {
 	await Promise.all(matches.slice(0, -1).map(key => cache.delete(key)));
 }
 
+async function safeFetch(request, event) {
+	return event.preloadResponse
+		.then(myResponse => myResponse || fetch(request))
+		.catch(() => fetch(request, {cache: 'force-cache'}));
+}
+
+function defaultHandler(request, event) {
+	if (request.method == 'GET') event.respondWith(safeFetch(request, event));
+}
+
 addEventListener('fetch', event => {
 	const request = event.request;
-	if (!isValid(request)) return;
+	if (!isValid(request)) return defaultHandler(request, event);
 	const mayReload = forcesReload(request);
-	const response = event.preloadResponse.then(myResponse => myResponse || fetch(request));
+	const response = safeFetch(request, event);
 	const cache = caches.open('runtime');
 	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
 	const raced = race(cached, response);
