@@ -108,6 +108,8 @@ addEventListener('fetch', event => {
 				]);
 			}
 		}
+		else if (myResponse.status == 206 && await cached)
+			await (await cache).delete(request);
 		else if (myResponse.type == 'opaque' && !await cached)
 			console.error(`${request.url} request is not crossorigin`);
 	}).finally(async () => {
