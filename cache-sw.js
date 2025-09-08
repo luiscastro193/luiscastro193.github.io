@@ -66,7 +66,7 @@ async function race(cached, response) {
 }
 
 async function cleanRepeated(request, cache) {
-	const matches = await cache.keys(request, {ignoreSearch: true});
+	const matches = await cache.keys(request, {ignoreSearch: true, ignoreVary: true});
 	await Promise.all(matches.slice(0, -1).map(key => cache.delete(key)));
 }
 
