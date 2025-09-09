@@ -1,6 +1,5 @@
 "use strict";
 importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
-hashwasm.createXXHash128();
 
 async function hash(stream) {
 	const hasher = await hashwasm.createXXHash128();
