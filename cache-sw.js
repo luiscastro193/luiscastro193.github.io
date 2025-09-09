@@ -11,7 +11,7 @@ async function hash(stream) {
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
-	const hashes = await Promise.all([...arguments].map(response => hash(response.body)));
+	const hashes = await Promise.all([...arguments].map(response => hash(response.clone().body)));
 	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
 
@@ -125,7 +125,7 @@ addEventListener('fetch', event => {
 			
 			if (mayReload && await cached) {
 				await Promise.all([
-					markReload((await raced).clone(), myResponse.clone(), client),
+					markReload(await raced, myResponse, client),
 					cleanRepeated(request, myCache)
 				]);
 			}
