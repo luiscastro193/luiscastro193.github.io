@@ -87,12 +87,13 @@ async function cleanAndRetry(cache, request, response, error) {
 
 async function race(cached, response) {
 	const raced = await Promise.any([cached, response]);
-	return raced?.status == 200 && raced || await cached || response;
+	return raced?.status < 500 && raced || await cached || response;
 }
 
 async function safeFetch(request, event) {
 	return event.preloadResponse
 		.then(myResponse => myResponse || fetch(request))
+		.then(myResponse => {if (myResponse.status < 500) return myResponse; else throw null})
 		.catch(() => fetch(request, {cache: 'force-cache'}));
 }
 
@@ -129,10 +130,11 @@ addEventListener('fetch', event => {
 				]);
 			}
 		}
-		else if (myResponse.status == 206 && await cached)
+		else if (myResponse.type == 'opaque') {
+			if (!await cached) console.error(`${request.url} request is not crossorigin`);
+		}
+		else if (myResponse.status < 500 && await cached)
 			await (await cache).delete(request);
-		else if (myResponse.type == 'opaque' && !await cached)
-			console.error(`${request.url} request is not crossorigin`);
 	}).finally(async () => {
 		if (mayReload) await reloadIfNeeded(client, clientId);
 	}));
