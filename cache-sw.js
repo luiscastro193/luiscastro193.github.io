@@ -10,6 +10,7 @@ async function hash(stream) {
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
+	if (etags.every(etag => etag?.length == 34)) return true;
 	const hashes = await Promise.all([...arguments].map(response => hash(response.clone().body)));
 	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
