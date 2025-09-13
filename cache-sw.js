@@ -1,17 +1,13 @@
 "use strict";
-importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
-
-async function hash(stream) {
-	const hasher = await hashwasm.createXXHash128();
-	await stream.pipeTo(new WritableStream({write: chunk => hasher.update(chunk)}));
-	return hasher.digest('binary');
+async function hash(response) {
+	return new Uint32Array(await crypto.subtle.digest('SHA-256', await response.arrayBuffer()));
 }
 
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
 	if (etags.every(etag => etag?.length >= 34)) return true;
-	const hashes = await Promise.all([...arguments].map(response => hash(response.clone().body)));
+	const hashes = await Promise.all([...arguments].map(response => hash(response.clone())));
 	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
 
