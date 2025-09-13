@@ -1,14 +1,24 @@
 "use strict";
-async function hash(response) {
-	return new Uint32Array(await crypto.subtle.digest('SHA-256', await response.arrayBuffer()));
+function areEqual(array1, array2) {
+	if (array1.byteLength != array2.byteLength) return false;
+	const n32 = Math.trunc(array1.byteLength / 4);
+	let view1 = new Uint32Array(array1, 0, n32);
+	let view2 = new Uint32Array(array2, 0, n32);
+	
+	for (let i = 0; i < n32; i++) {
+		if (view1[i] != view2[i]) return false;
+	}
+	
+	view1 = new Uint8Array(array1, n32 * 4);
+	view2 = new Uint8Array(array2, n32 * 4);
+	return view1.every((value, index) => value == view2[index]);
 }
 
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
 	if (etags.every(etag => etag?.length >= 34)) return true;
-	const hashes = await Promise.all([...arguments].map(response => hash(response.clone())));
-	return hashes[0].some((value, index) => value != hashes[1][index]);
+	return !areEqual(...await Promise.all([...arguments].map(response => response.clone().arrayBuffer())));
 }
 
 function forcesReload(request) {
