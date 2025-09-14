@@ -1,9 +1,19 @@
 "use strict";
 importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
+let hasherPromise;
 
 async function hash(stream) {
-	const hasher = await hashwasm.createXXHash128();
-	await stream.pipeTo(new WritableStream({write: chunk => hasher.update(chunk)}));
+	if (!hasherPromise) hasherPromise = hashwasm.createXXHash128();
+	const hasher = await hasherPromise;
+	let state;
+	
+	await stream.pipeTo(new WritableStream({write: chunk => {
+		state ? hasher.load(state) : hasher.init();
+		hasher.update(chunk)
+		state = hasher.save();
+	}}));
+	
+	hasher.load(state);
 	return hasher.digest('binary');
 }
 
