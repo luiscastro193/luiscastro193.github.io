@@ -1,12 +1,10 @@
 "use strict";
-// FNV-1a 32-bit
+importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
+
 async function hash(stream) {
-	let result = 0x811c9dc5;
-	await stream.pipeTo(new WritableStream({write: chunk => {
-		for (let i = 0; i < chunk.length; i++)
-			result = Math.imul(result ^ chunk[i], 0x01000193);
-	}}));
-	return result >>> 0;
+	const hasher = await hashwasm.createXXHash128();
+	await stream.pipeTo(new WritableStream({write: chunk => hasher.update(chunk)}));
+	return hasher.digest('binary');
 }
 
 async function hasUpdated(oldResponse, newResponse) {
@@ -14,7 +12,7 @@ async function hasUpdated(oldResponse, newResponse) {
 	if (etags[0] && etags[0] == etags[1]) return false;
 	if (etags.every(etag => etag?.length >= 34)) return true;
 	const hashes = await Promise.all([...arguments].map(response => hash(response.clone().body)));
-	return hashes[0] != hashes[1];
+	return hashes[0].some((value, index) => value != hashes[1][index]);
 }
 
 function forcesReload(request) {
