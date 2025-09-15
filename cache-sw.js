@@ -13,7 +13,7 @@ async function hash(stream) {
 		state = hasher.save();
 	}}));
 	
-	hasher.load(state);
+	state ? hasher.load(state) : hasher.init();
 	return hasher.digest('binary');
 }
 
