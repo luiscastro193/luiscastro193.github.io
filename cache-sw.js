@@ -100,9 +100,8 @@ async function race(cached, response) {
 	return raced?.status < 500 && raced || await cached || response;
 }
 
-async function safeFetch(request, event) {
-	return event.preloadResponse
-		.then(myResponse => myResponse || fetch(request))
+async function safeFetch(request) {
+	return fetch(request)
 		.then(myResponse => {if (myResponse.status < 500) return myResponse; else throw null})
 		.catch(() => fetch(request, {cache: 'force-cache'}));
 }
@@ -115,7 +114,7 @@ addEventListener('fetch', event => {
 	const request = event.request;
 	if (!isValid(request)) return defaultHandler(request, event);
 	const mayReload = forcesReload(request);
-	const response = safeFetch(request, event);
+	const response = safeFetch(request);
 	const cache = caches.open('runtime');
 	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
 	const raced = race(cached, response);
@@ -150,5 +149,5 @@ addEventListener('fetch', event => {
 	}));
 });
 
-addEventListener('activate', event => event.waitUntil(registration.navigationPreload.enable()));
-skipWaiting();
+addEventListener('activate', event => event.waitUntil(registration.navigationPreload.disable()));
+addEventListener('install', event => event.waitUntil(skipWaiting()));
