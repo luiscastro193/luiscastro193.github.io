@@ -114,9 +114,9 @@ addEventListener('fetch', event => {
 	const request = event.request;
 	if (!isValid(request)) return defaultHandler(request, event);
 	const mayReload = forcesReload(request);
-	const response = safeFetch(request);
 	const cache = caches.open('runtime');
 	const cached = cache.then(myCache => myCache.match(request, {ignoreSearch: mayReload}));
+	const response = safeFetch(request);
 	const raced = race(cached, response);
 	event.respondWith(raced.then(myRaced => myRaced.clone()));
 	
@@ -149,5 +149,5 @@ addEventListener('fetch', event => {
 	}));
 });
 
-addEventListener('activate', event => event.waitUntil(registration.navigationPreload.disable()));
 addEventListener('install', event => event.waitUntil(skipWaiting()));
+addEventListener('activate', event => event.waitUntil(registration.navigationPreload.disable()));
