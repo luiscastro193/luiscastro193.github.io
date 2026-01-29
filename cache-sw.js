@@ -124,7 +124,7 @@ async function safeFetch(request) {
 }
 
 function defaultHandler(request, event) {
-	if (request.method == 'GET') event.respondWith(safeFetch(request, event));
+	if (request.method == 'GET') event.respondWith(safeFetch(request));
 }
 
 addEventListener('fetch', event => {
