@@ -55,15 +55,32 @@ async function markReload(oldResponse, newResponse, client) {
 async function reload(clientId) {
 	const client = await clients.get(clientId);
 	if (client) await client.navigate(client.url);
+	return true;
 }
+
+async function safeReload(clientId) {
+	const maxTime = Date.now() + 10000;
+	
+	while (!await reload(clientId).catch(e => console.error(e)) && Date.now() < maxTime) {
+		await new Promise(resolve => setTimeout(resolve));
+	};
+	
+	myClients.delete(clientId);
+};
 
 async function reloadIfNeeded(client, clientId) {
 	return new Promise(resolve => {setTimeout(() => {
 		client.petitions--;
 		
 		if (client.petitions <= 0) {
-			myClients.delete(clientId);
-			if (client.reload) resolve(reload(clientId));
+			if (client.reload) {
+				if (!client.reloading) {
+					client.reloading = true;
+					resolve(safeReload(clientId));
+				}
+			}
+			else
+				myClients.delete(clientId);
 		}
 		
 		resolve();
@@ -122,8 +139,10 @@ addEventListener('fetch', event => {
 	
 	if (mayReload) {
 		var clientId = event.resultingClientId || event.clientId;
-		var client = getClient(clientId);
-		client.petitions++;
+		if (clientId) {
+			var client = getClient(clientId);
+			client.petitions++;
+		}
 	}
 	
 	event.waitUntil(response.then(async myResponse => {
@@ -134,7 +153,7 @@ addEventListener('fetch', event => {
 			
 			if (mayReload && await cached) {
 				await Promise.all([
-					markReload(await raced, myResponse, client),
+					clientId && markReload(await raced, myResponse, client),
 					cleanRepeated(request, myCache)
 				]);
 			}
@@ -145,7 +164,7 @@ addEventListener('fetch', event => {
 		else if (myResponse.status < 500 && await cached)
 			await (await cache).delete(request);
 	}).finally(async () => {
-		if (mayReload) await reloadIfNeeded(client, clientId);
+		if (mayReload && clientId) await reloadIfNeeded(client, clientId);
 	}));
 });
 
