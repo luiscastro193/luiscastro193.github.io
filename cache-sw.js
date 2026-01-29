@@ -54,16 +54,20 @@ async function markReload(oldResponse, newResponse, client) {
 
 async function reload(clientId) {
 	const client = await clients.get(clientId);
-	if (client) await client.navigate(client.url);
-	return true;
+	if (client) client.postMessage(null);
+	else return true;
 }
 
-async function safeReload(clientId) {
+addEventListener('message', event => {
+	const client = myClients.get(event.source?.id);
+	if (client) client.reloaded = true;
+});
+
+async function safeReload(client, clientId) {
 	const maxTime = Date.now() + 10000;
 	
-	while (!await reload(clientId).catch(e => console.error(e)) && Date.now() < maxTime) {
+	while (!client.reloaded && !await reload(clientId) && Date.now() < maxTime)
 		await new Promise(resolve => setTimeout(resolve));
-	};
 	
 	myClients.delete(clientId);
 };
@@ -76,7 +80,7 @@ async function reloadIfNeeded(client, clientId) {
 			if (client.reload) {
 				if (!client.reloading) {
 					client.reloading = true;
-					resolve(safeReload(clientId));
+					resolve(safeReload(client, clientId));
 				}
 			}
 			else
