@@ -117,7 +117,7 @@ async function cleanAndRetry(cache, request, response, error) {
 }
 
 async function race(cached, response) {
-	const raced = await Promise.any([response, cached]);
+	const raced = await Promise.any([cached, response]);
 	return raced?.status < 500 && raced || await cached || response;
 }
 
