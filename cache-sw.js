@@ -31,7 +31,7 @@ function forcesReload(request) {
 }
 
 function isValid(request) {
-	return forcesReload(request) || request.destination == 'style';
+	return request.method == 'GET' && (forcesReload(request) || request.destination == 'style');
 }
 
 const myClients = new Map();
@@ -166,11 +166,11 @@ addEventListener('fetch', event => {
 			if (!await cached) console.error(`${request.url} request is not crossorigin`);
 		}
 		else if (myResponse.status < 500 && await cached)
-			await (await cache).delete(request);
+			await (await cache).delete(request, {ignoreSearch: mayReload});
 	}).finally(async () => {
 		if (mayReload && clientId) await reloadIfNeeded(client, clientId);
 	}));
 });
 
 addEventListener('install', event => event.waitUntil(skipWaiting()));
-addEventListener('activate', event => event.waitUntil(registration.navigationPreload.disable()));
+addEventListener('activate', event => event.waitUntil(registration.navigationPreload?.disable()));
