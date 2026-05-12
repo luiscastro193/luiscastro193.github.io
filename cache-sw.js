@@ -1,28 +1,12 @@
 "use strict";
-importScripts('https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/xxhash128.umd.min.js');
-let hasherPromise;
-
-async function hash(stream) {
-	if (!hasherPromise) hasherPromise = hashwasm.createXXHash128();
-	const hasher = await hasherPromise;
-	let state;
-	
-	await stream.pipeTo(new WritableStream({write: chunk => {
-		state ? hasher.load(state) : hasher.init();
-		hasher.update(chunk)
-		state = hasher.save();
-	}}));
-	
-	state ? hasher.load(state) : hasher.init();
-	return hasher.digest('binary');
-}
+import hash from 'https://luiscastro193.github.io/hasher/hasher.js';
 
 async function hasUpdated(oldResponse, newResponse) {
 	const etags = [...arguments].map(response => response.headers.get('etag')?.trim().replace(/^W\//, ''));
 	if (etags[0] && etags[0] == etags[1]) return false;
 	if (etags.every(etag => etag?.length >= 34)) return true;
 	const hashes = await Promise.all([...arguments].map(response => hash(response.clone().body)));
-	return hashes[0].some((value, index) => value != hashes[1][index]);
+	return hashes[0] != hashes[1];
 }
 
 function forcesReload(request) {

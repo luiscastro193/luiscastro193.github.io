@@ -4,4 +4,4 @@ navigator.serviceWorker.addEventListener('message', () => {
 	location.reload();
 }, {once: true});
 
-navigator.serviceWorker.register(new URL('cache-sw.min.js', import.meta.url));
+navigator.serviceWorker.register(new URL('cache-sw.min.js', import.meta.url), {type: 'module'});
